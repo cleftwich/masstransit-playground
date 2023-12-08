@@ -10,12 +10,9 @@ public class SagaStateMachineTest
     private IServiceCollection _serviceCollection;
 
     [Test]
-    public async Task CompleteExampleSagaStateMachineTest()
+    public async Task ExampleSagaStateMachineTest()
     {
         _serviceCollection = new ServiceCollection();
-
-        // Add our services, if we had any.
-        // _serviceCollection.AddSingleton<>();
 
         _serviceCollection.AddMassTransitTestHarness(cfg =>
         {
@@ -27,15 +24,13 @@ public class SagaStateMachineTest
 
         // Fetch the MassTransit Test Harness
         var testHarness = provider.GetRequiredService<ITestHarness>();
-        testHarness.TestTimeout = TimeSpan.FromSeconds(5);
+        testHarness.TestInactivityTimeout = TimeSpan.FromSeconds(60);
 
         try
         {
             // Start the test harness
             await testHarness.Start();
-
             var sagaId = Guid.NewGuid();
-
             await testHarness.Bus.Publish(new SubmitOrder
             {
                 OrderId = sagaId
@@ -48,8 +43,6 @@ public class SagaStateMachineTest
 
             // Check that the saga was created
             Assert.That(await sagaHarness.Created.Any(x => x.CorrelationId == sagaId), "A new item was not created with the given sagaId.");
-
-            // Check for a saga in the Submitted state with the given sagaId. Seems like a better way to check the last assert?
             var instance = sagaHarness.Created.ContainsInState(sagaId, sagaHarness.StateMachine, sagaHarness.StateMachine.Submitted);
 
             Assert.IsNotNull(instance, "Saga instance not found");
@@ -82,6 +75,10 @@ public class SagaStateMachineTest
                 DateAccepted = christmas_2012,
                 DateFinalized = new_years_eve_2012
             });
+
+            // To get test to pass, uncomment
+            // var existsId = await sagaHarness.Exists(sagaId, x => x.Final);
+            // Assert.IsTrue(existsId.HasValue);
 
             // Check that the harness and saga harness got the finalize request
             Assert.That(await testHarness.Consumed.Any<FinalizeOrder>(), "The finalize order request was not recieved by the harness");
